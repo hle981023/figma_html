@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SnapRatio — Illustrator Agent 목업</title>
+<style>
+  :root{
+    --bg:#1e1e1e; --panel:#262626; --panel2:#2f2f2f; --line:#3a3a3a;
+    --txt:#e8e8e8; --muted:#9a9a9a; --accent:#1473e6; --accent2:#2d8cff;
+    --good:#4ccf8e; --warn:#f4b740; --card:#303030;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#141414;color:var(--txt);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;
+    display:flex;justify-content:center;padding:24px;}
+  .app{width:1080px;max-width:100%;background:var(--bg);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,.5);}
+  .titlebar{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#171717;border-bottom:1px solid var(--line);}
+  .dot{width:11px;height:11px;border-radius:50%;background:#3a3a3a}
+  .titlebar h1{font-size:13px;font-weight:600;margin:0;letter-spacing:.2px}
+  .titlebar .tag{font-size:10px;color:var(--muted);border:1px solid var(--line);padding:2px 7px;border-radius:20px;margin-left:6px}
+  .grid{display:grid;grid-template-columns:1.15fr .85fr;min-height:560px}
+  .canvaswrap{padding:20px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:14px}
+  .stage{flex:1;background:
+      linear-gradient(#232323 1px,transparent 1px) 0 0/24px 24px,
+      linear-gradient(90deg,#232323 1px,transparent 1px) 0 0/24px 24px,
+      #1a1a1a;
+    border:1px solid var(--line);border-radius:8px;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  svg{display:block}
+  .sidebar{padding:20px;display:flex;flex-direction:column;gap:18px;overflow:auto}
+  .block label.h{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--muted);display:block;margin-bottom:8px}
+  .units{display:flex;gap:6px}
+  .units button{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--muted);
+    padding:8px 0;border-radius:7px;font-size:12px;cursor:pointer;transition:.15s;font-weight:600}
+  .units button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .sizerow{display:flex;gap:10px}
+  .field{flex:1;background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 10px}
+  .field span{font-size:10px;color:var(--muted);display:block}
+  .field input{width:100%;background:transparent;border:none;color:var(--txt);font-size:17px;font-weight:600;outline:none;padding:2px 0}
+  .ratio-now{font-size:12px;color:var(--muted);margin-top:8px}
+  .ratio-now b{color:var(--txt)}
+  .cards{display:flex;flex-direction:column;gap:9px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:12px 13px;cursor:pointer;transition:.15s;position:relative}
+  .card:hover{border-color:#4a4a4a}
+  .card.sel{border-color:var(--accent);background:#1f2c3f}
+  .card.primary::after{content:"추천";position:absolute;top:10px;right:12px;font-size:9px;background:var(--good);color:#083;padding:2px 7px;border-radius:20px;font-weight:700}
+  .card .size{font-size:18px;font-weight:700;letter-spacing:.3px}
+  .card .meta{font-size:11px;color:var(--muted);margin-top:4px;display:flex;gap:12px;flex-wrap:wrap}
+  .card .meta .r{color:var(--accent2);font-weight:600}
+  .card .dev.zero{color:var(--good)}
+  .mult{display:flex;gap:6px;align-items:center}
+  .mult button{background:var(--panel);border:1px solid var(--line);color:var(--txt);padding:7px 0;border-radius:7px;font-size:12px;cursor:pointer;flex:1;font-weight:600}
+  .mult button:hover{border-color:var(--accent)}
+  .apply{background:var(--accent);border:none;color:#fff;padding:11px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;width:100%}
+  .apply:hover{background:var(--accent2)}
+  .foot{font-size:10.5px;color:#6f6f6f;line-height:1.5;border-top:1px solid var(--line);padding-top:12px}
+  .lbl-edge{font-size:11px;fill:var(--muted);font-family:inherit}
+  .lbl-ratio{font-size:13px;fill:var(--accent2);font-weight:700;font-family:inherit}
+  .cell-lbl{font-size:9px;fill:#5a6b82;font-family:inherit}
+  .gridtoggle{display:flex;gap:6px}
+  .gridtoggle button{flex:1;background:var(--panel);border:1px solid var(--line);color:var(--muted);padding:6px 0;border-radius:6px;font-size:11px;cursor:pointer}
+  .gridtoggle button.on{color:var(--txt);border-color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="titlebar">
+    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+    <h1>SnapRatio</h1><span class="tag">Illustrator Agent · 목업</span>
+  </div>
+  <div class="grid">
+    <!-- CANVAS -->
+    <div class="canvaswrap">
+      <div class="block">
+        <label class="h">그리드 오버레이 (비율 시각화)</label>
+        <div class="gridtoggle">
+          <button data-g="ratio" class="on">비율 그리드</button>
+          <button data-g="off">끄기</button>
+        </div>
+      </div>
+      <div class="stage">
+        <svg id="viz" width="460" height="360" viewBox="0 0 460 360"></svg>
+      </div>
+      <div class="foot">
+        점선 = 선택한 정수비의 그리드. 그래픽 끝선에 맞춰 <b>몇 : 몇</b> 비율인지 각 칸(정사각형)으로 확인됩니다.
+        원본 대비 편차와 함께 소수점 없는 사이즈만 추천합니다.
+      </div>
+    </div>
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+      <div class="block">
+        <label class="h">단위</label>
+        <div class="units" id="units">
+          <button data-u="mm" class="on">mm</button>
+          <button data-u="pt">pt</button>
+          <button data-u="px">px</button>
+          <button data-u="in">in</button>
+        </div>
+      </div>
+      <div class="block">
+        <label class="h">현재 사이즈 (측정값)</label>
+        <div class="sizerow">
+          <div class="field"><span>W (가로)</span><input id="inW" type="number" step="0.01" value="127.34"></div>
+          <div class="field"><span>H (세로)</span><input id="inH" type="number" step="0.01" value="84.62"></div>
+        </div>
+        <div class="ratio-now">현재 비율 <b id="curRatio">1.505</b> · 기준점 <b>좌상단 고정</b></div>
+      </div>
+      <div class="block">
+        <label class="h">비율 유지 · 정수 사이즈 추천</label>
+        <div class="cards" id="cards"></div>
+      </div>
+      <div class="block">
+        <label class="h">배수 변형 (선택 사이즈 기준)</label>
+        <div class="mult" id="mult">
+          <button data-m="0.5">×0.5</button>
+          <button data-m="2">×2</button>
+          <button data-m="3">×3</button>
+          <button data-m="reset">원복</button>
+        </div>
+      </div>
+      <button class="apply" id="applyBtn">선택 사이즈 적용 →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const U={mm:"mm",pt:"pt",px:"px",in:"in"};
+let state={unit:"mm",W:127.34,H:84.62,sel:0,gridOn:true,options:[]};
+
+function gcd(a,b){a=Math.round(a);b=Math.round(b);while(b){[a,b]=[b,a%b];}return a;}
+
+// 현재 비율에 가장 가까운 "단순 정수비" p:q 찾기 (연분수식 - 분모 오름차순 = 가장 단순)
+function simplestRatio(r,maxQ=40,tol=0.02){
+  for(let q=1;q<=maxQ;q++){
+    let p=Math.round(r*q);
+    if(p<1) continue;
+    if(Math.abs(p/q-r)/r<=tol){
+      let g=gcd(p,q);
+      return {p:p/g,q:q/g};
+    }
+  }
+  // fallback: 원본 반올림 후 약분
+  let p=Math.round(r*100),q=100,g=gcd(p,q);
+  return {p:p/g,q:q/g};
+}
+
+// 정수비 p:q 를 유지하며 원본 크기 근처의 정수 사이즈 후보 생성
+function buildOptions(W,H){
+  const r=W/H;
+  const {p,q}=simplestRatio(r);
+  const kCenter=(W/p + H/q)/2;
+  const ks=new Set();
+  for(let d=-2;d<=3;d++){let k=Math.round(kCenter)+d;if(k>=1)ks.add(k);}
+  let opts=[...ks].map(k=>{
+    const w=p*k,h=q*k;
+    const dev=Math.max(Math.abs(w-W)/W,Math.abs(h-H)/H)*100;
+    return {w,h,p,q,k,dev};
+  });
+  // 편차 오름차순
+  opts.sort((a,b)=>a.dev-b.dev);
+  opts=opts.slice(0,4);
+  return {opts,p,q};
+}
+
+function fmt(n){return Number.isInteger(n)?n:(+n.toFixed(2));}
+
+function render(){
+  const {opts}=buildOptions(state.W,state.H);
+  state.options=opts;
+  if(state.sel>=opts.length)state.sel=0;
+  document.getElementById("curRatio").textContent=(state.W/state.H).toFixed(3);
+
+  // cards
+  const c=document.getElementById("cards");c.innerHTML="";
+  opts.forEach((o,i)=>{
+    const el=document.createElement("div");
+    el.className="card"+(i===0?" primary":"")+(i===state.sel?" sel":"");
+    const devTxt=o.dev<0.05?'<span class="dev zero">편차 0%</span>':`<span class="dev">편차 ${o.dev.toFixed(1)}%</span>`;
+    el.innerHTML=`<div class="size">${o.w} × ${o.h} <span style="font-size:11px;color:var(--muted)">${state.unit}</span></div>
+      <div class="meta"><span class="r">${o.p} : ${o.q}</span>${devTxt}<span>그리드 ${o.p}×${o.q}칸</span></div>`;
+    el.onclick=()=>{state.sel=i;render();};
+    c.appendChild(el);
+  });
+  drawViz(opts[state.sel]);
+}
+
+function drawViz(o){
+  const svg=document.getElementById("viz");
+  if(!o){svg.innerHTML="";return;}
+  const SW=460,SH=360,pad=54;
+  // fit rect keeping ratio
+  const rr=o.w/o.h;
+  let bw=SW-pad*2, bh=bw/rr;
+  if(bh>SH-pad*2){bh=SH-pad*2;bw=bh*rr;}
+  const x=(SW-bw)/2, y=(SH-bh)/2;
+  let s=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="#1473e6" fill-opacity="0.16" stroke="#2d8cff" stroke-width="1.5"/>`;
+  // corner anchor (좌상단)
+  s+=`<rect x="${x-3}" y="${y-3}" width="6" height="6" fill="#4ccf8e"/>`;
+  s+=`<text x="${x+2}" y="${y-8}" class="cell-lbl" fill="#4ccf8e">◤ 앵커</text>`;
+  if(state.gridOn){
+    for(let i=1;i<o.p;i++){const gx=x+bw*i/o.p;s+=`<line x1="${gx}" y1="${y}" x2="${gx}" y2="${y+bh}" stroke="#2d8cff" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.5"/>`;}
+    for(let j=1;j<o.q;j++){const gy=y+bh*j/o.q;s+=`<line x1="${x}" y1="${gy}" x2="${x+bw}" y2="${gy}" stroke="#2d8cff" stroke-width="1" stroke-dasharray="3 3" stroke-opacity="0.5"/>`;}
+    // center ratio label
+    s+=`<text x="${SW/2}" y="${y+bh/2+5}" class="lbl-ratio" text-anchor="middle">${o.p} : ${o.q}</text>`;
+  }
+  // edge dims
+  s+=`<text x="${SW/2}" y="${y-8}" class="lbl-edge" text-anchor="middle">${o.w} ${state.unit}  (${o.p}칸)</text>`;
+  s+=`<text x="${x-10}" y="${y+bh/2}" class="lbl-edge" text-anchor="middle" transform="rotate(-90 ${x-10} ${y+bh/2})">${o.h} ${state.unit}  (${o.q}칸)</text>`;
+  svg.innerHTML=s;
+}
+
+// events
+document.getElementById("units").onclick=e=>{
+  if(e.target.dataset.u){[...e.currentTarget.children].forEach(b=>b.classList.remove("on"));
+    e.target.classList.add("on");state.unit=e.target.dataset.u;render();}
+};
+document.querySelector(".gridtoggle").onclick=e=>{
+  if(e.target.dataset.g){[...e.currentTarget.children].forEach(b=>b.classList.remove("on"));
+    e.target.classList.add("on");state.gridOn=e.target.dataset.g==="ratio";render();}
+};
+document.getElementById("inW").oninput=e=>{state.W=parseFloat(e.target.value)||1;render();};
+document.getElementById("inH").oninput=e=>{state.H=parseFloat(e.target.value)||1;render();};
+document.getElementById("mult").onclick=e=>{
+  const m=e.target.dataset.m;if(!m)return;
+  const o=state.options[state.sel];if(!o)return;
+  if(m==="reset"){render();return;}
+  const f=parseFloat(m);
+  // 배수 적용 후에도 정수 유지 (정수비×정수k 이므로 배수도 정수)
+  const nw=Math.round(o.w*f), nh=Math.round(o.h*f);
+  document.getElementById("inW").value=nw;document.getElementById("inH").value=nh;
+  state.W=nw;state.H=nh;state.sel=0;render();
+};
+document.getElementById("applyBtn").onclick=()=>{
+  const o=state.options[state.sel];if(!o)return;
+  document.getElementById("inW").value=o.w;document.getElementById("inH").value=o.h;
+  state.W=o.w;state.H=o.h;render();
+  const b=document.getElementById("applyBtn");b.textContent=`✓ 적용됨 · ${o.w} × ${o.h} ${state.unit}`;
+  setTimeout(()=>b.textContent="선택 사이즈 적용 →",1400);
+};
+render();
+</script>
+</body>
+</html>
